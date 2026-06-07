@@ -54,3 +54,4 @@ class _FloralBackgroundState extends State<FloralBackground>
       },
     );
   }
+}

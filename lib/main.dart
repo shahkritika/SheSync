@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'core/theme.dart';
-import 'features/onboarding/onboarding_screen.dart';
+import 'features/onboarding/onboarding_splash.dart';
 
 void main() {
   runApp(SheSyncApp());
@@ -13,7 +13,7 @@ class SheSyncApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'SheSync',
       theme: AppTheme.lightTheme,
-      home: OnboardingScreen(),
+      home: OnboardingSplash(),
     );
   }
 }

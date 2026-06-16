@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'widgets/learn_card.dart';
 import 'widgets/story_widget.dart';
+import 'learn_chatbot.dart';
 
 class LearnPage extends StatefulWidget {
   const LearnPage({super.key});
@@ -16,126 +17,176 @@ class _LearnPageState extends State<LearnPage> {
   final Color bg = const Color(0xFFF2FFFA);
   final Color accent = const Color(0xFF7ED6B2);
 
+  int selectedIndex = 0;
+
+  final List<String> categories = [
+    "All",
+    "PCOS",
+    "PCOD",
+    "Hormones",
+    "Mental Health"
+  ];
+
   final stories = [
     {
       "title": "Hormone Insight",
       "subtitle": "Cycle & balance",
       "text":
-          "Your menstrual cycle is regulated by estrogen, progesterone, insulin, and cortisol. Even stress or sleep changes can shift ovulation timing."
+          "Your hormones (estrogen & progesterone) control your cycle, mood, and energy."
     },
     {
       "title": "PCOS Truth",
-      "subtitle": "A manageable condition",
+      "subtitle": "Understand it better",
       "text":
-          "PCOS is not a fixed disease — it is a metabolic-hormonal imbalance that can be improved through consistent lifestyle changes."
+          "PCOS is a hormonal imbalance that can be managed with lifestyle changes."
     },
     {
       "title": "Body Awareness",
-      "subtitle": "Understand patterns",
+      "subtitle": "Know yourself",
       "text":
-          "Tracking your cycle helps identify emotional, physical, and hormonal patterns over time."
+          "Tracking your cycle helps you understand emotional and physical patterns."
     },
   ];
 
   final cards = [
     {
       "title": "PCOS (Polycystic Ovary Syndrome)",
-      "subtitle": "Hormonal + metabolic condition",
+      "subtitle": "Hormonal condition",
       "desc":
-          "PCOS involves irregular ovulation, increased androgen levels, and insulin resistance. It affects metabolism, skin, mood, and fertility.",
+          "PCOS affects ovulation, hormones, skin, and metabolism. It is manageable.",
       "icon": Icons.health_and_safety,
+      "category": "PCOS",
     },
     {
       "title": "PCOD (Polycystic Ovarian Disease)",
-      "subtitle": "Mild ovarian imbalance",
+      "subtitle": "Mild imbalance",
       "desc":
-          "PCOD occurs when ovaries release immature eggs. It is often influenced by lifestyle and is more reversible compared to PCOS.",
+          "PCOD is often lifestyle-related and can improve with diet and exercise.",
       "icon": Icons.spa,
+      "category": "PCOD",
     },
     {
-      "title": "Key Difference",
-      "subtitle": "PCOS vs PCOD",
+      "title": "Hormonal Balance",
+      "subtitle": "Core health",
       "desc":
-          "PCOS is a systemic hormonal condition with metabolic effects. PCOD is mainly ovarian and often less severe.",
-      "icon": Icons.compare_arrows,
+          "Sleep, nutrition, and stress control help balance hormones naturally.",
+      "icon": Icons.favorite,
+      "category": "Hormones",
     },
     {
-      "title": "Management Approach",
-      "subtitle": "Holistic lifestyle system",
+      "title": "Mental Health",
+      "subtitle": "Mind-body link",
       "desc":
-          "• Balanced nutrition (whole foods, low sugar)\n"
-          "• Strength training + daily movement\n"
-          "• Stress reduction (meditation, journaling)\n"
-          "• Sleep consistency (7–9 hours)\n"
-          "• Medical support if required\n\n"
-          "Small consistent habits create long-term hormonal balance and stability.",
+          "Hormones directly affect mood, anxiety, and emotional health.",
       "icon": Icons.self_improvement,
+      "category": "Mental Health",
     },
   ];
 
   @override
   Widget build(BuildContext context) {
+    final filteredCards = selectedIndex == 0
+        ? cards
+        : cards.where((c) => c["category"] == categories[selectedIndex]).toList();
+
     return Scaffold(
       backgroundColor: bg,
+
+      // 🤖 CHATBOT BUTTON
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: accent,
+        child: const Icon(Icons.chat, color: Colors.white),
+        onPressed: () {
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            builder: (_) => const LearnChatBot(),
+          );
+        },
+      ),
 
       appBar: AppBar(
         backgroundColor: bg,
         elevation: 0,
         centerTitle: true,
-        title: Text(
+        title: const Text(
           "Learn",
           style: TextStyle(
-            color: Colors.green.shade900,
-            fontWeight: FontWeight.w600,
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
           ),
         ),
-        iconTheme: IconThemeData(color: Colors.green.shade800),
+        iconTheme: const IconThemeData(color: Colors.black),
       ),
 
       body: SafeArea(
         child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
 
-              // 🌿 HEADER
+              // HEADER
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
-                  boxShadow: [
-                    BoxShadow(
-                      color: accent.withOpacity(0.2),
-                      blurRadius: 12,
-                    )
-                  ],
+                  borderRadius: BorderRadius.circular(16),
                 ),
                 child: const Text(
-                  "Gentle, science-backed understanding of your hormones 🌿",
+                  "Learn about your body, hormones & cycles in a simple way 🌿",
                   style: TextStyle(
-                    fontSize: 14,
-                    height: 1.4,
+                    color: Colors.black,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
 
-              const SizedBox(height: 18),
+              const SizedBox(height: 20),
 
-              // 📖 STORIES
-              const Text(
-                "Daily Learn 🌱",
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
+              // CATEGORY FILTER
+              SizedBox(
+                height: 40,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: categories.length,
+                  itemBuilder: (context, i) {
+                    final selected = i == selectedIndex;
+
+                    return GestureDetector(
+                      onTap: () => setState(() => selectedIndex = i),
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 10),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: selected ? accent : Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: accent),
+                        ),
+                        child: Text(
+                          categories[i],
+                          style: TextStyle(
+                            color: selected ? Colors.white : Colors.black,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
 
-              const SizedBox(height: 12),
+              const SizedBox(height: 20),
+
+              // STORIES
+              const Text(
+                "Daily Learn 🌱",
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+              ),
+
+              const SizedBox(height: 10),
 
               SizedBox(
                 height: 170,
@@ -145,7 +196,6 @@ class _LearnPageState extends State<LearnPage> {
                   itemCount: stories.length,
                   itemBuilder: (context, i) {
                     final s = stories[i];
-
                     return StoryWidget(
                       title: s["title"]!,
                       subtitle: s["subtitle"]!,
@@ -158,25 +208,20 @@ class _LearnPageState extends State<LearnPage> {
 
               const SizedBox(height: 20),
 
-              // 🧠 GUIDE
+              // CARDS
               const Text(
-                "PCOS & PCOD Guide 🌿",
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
+                "PCOS • PCOD • Hormones",
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
               ),
 
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
 
-              // FIXED OVERFLOW → shrinkWrap + no extra constraints
               ListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                itemCount: cards.length,
+                itemCount: filteredCards.length,
                 itemBuilder: (context, i) {
-                  final c = cards[i];
+                  final c = filteredCards[i];
 
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
@@ -190,8 +235,6 @@ class _LearnPageState extends State<LearnPage> {
                   );
                 },
               ),
-
-              const SizedBox(height: 30),
             ],
           ),
         ),

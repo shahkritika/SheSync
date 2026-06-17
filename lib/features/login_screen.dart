@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
+import 'dart:math' as math;
 
 import '../core/auth_service.dart';
 import '../core/profile_service.dart';
@@ -255,7 +256,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                         ),
                                       )
                                     : const Text(
-                                        "Sign In",
+                                        "Login",
                                         style: TextStyle(
                                           fontSize: 15,
                                           fontWeight: FontWeight.w700,
@@ -296,7 +297,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             children: [
                               TextSpan(
-                                text: "Sign up",
+                                text: "Sign In",
                                 style: TextStyle(
                                   color: accent,
                                   fontWeight: FontWeight.w700,

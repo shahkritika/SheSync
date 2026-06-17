@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../core/colors.dart';
 import 'onboarding_form.dart';
+import '../login_screen.dart';
 
 class OnboardingSplash extends StatefulWidget {
   const OnboardingSplash({super.key});
@@ -21,7 +22,7 @@ class _OnboardingSplashState extends State<OnboardingSplash> {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (context) => const OnboardingForm(),
+          builder: (context) => const LoginScreen(),
         ),
       );
     });

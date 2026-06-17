@@ -17,18 +17,18 @@ class SheAnimatedNavBar extends StatefulWidget {
 class _SheAnimatedNavBarState extends State<SheAnimatedNavBar> {
   final List<IconData> icons = [
     Icons.home_rounded,
-    Icons.insights_rounded,
     Icons.track_changes_rounded,
     Icons.auto_stories_rounded, // 🌸 Learn (Pinterest / Stories vibe)
     Icons.history_rounded,
+    Icons.settings_rounded,
   ];
 
   final List<String> labels = [
     "Home",
-    "Insights",
     "Track",
     "Learn",
     "History",
+    "Settings",
   ];
 
   @override

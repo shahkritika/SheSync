@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../core/colors.dart';
 import '../../core/user_storage.dart';
 import '../home/home_screen.dart';
+import '../shell/main_shell.dart';
+import '../login_screen.dart';
 
 
 class OnboardingForm extends StatefulWidget {
@@ -46,7 +48,7 @@ class _OnboardingFormState extends State<OnboardingForm> {
 
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (context) => const HomeScreen()),
+      MaterialPageRoute(builder: (context) => const MainShell()),
     );
   }
 

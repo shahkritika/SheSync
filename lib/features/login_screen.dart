@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
 
-import '../../core/auth_service.dart';
+import '../core/auth_service.dart';
+import '../core/profile_service.dart';
 import 'shell/main_shell.dart';
+import 'profile/user_profile_screen.dart';
 import 'signup_screen.dart';
 
 // ─────────────────────────────────────────────
@@ -49,9 +51,31 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (!mounted) return;
+
+      // Check whether this user has already filled in a profile.
+      // If last_period_start_date and age are both unset, treat this as
+      // a fresh account and route through onboarding; otherwise skip
+      // straight to the app.
+      bool needsOnboarding = false;
+      try {
+        final profile = await ProfileService.getProfile();
+        needsOnboarding = profile.age == null &&
+            profile.heightCm == null &&
+            profile.weightKg == null &&
+            profile.lastPeriodStartDate == null;
+      } catch (_) {
+        // If the profile fetch fails for any reason, don't block login —
+        // just skip onboarding and let them reach the app.
+        needsOnboarding = false;
+      }
+
+      if (!mounted) return;
+
       Navigator.of(context).pushAndRemoveUntil(
         PageRouteBuilder(
-          pageBuilder: (_, __, ___) => const MainShell(),
+          pageBuilder: (_, __, ___) => needsOnboarding
+              ? const UserProfileScreen(isOnboarding: true)
+              : const MainShell(),
           transitionsBuilder: (_, anim, __, child) =>
               FadeTransition(opacity: anim, child: child),
           transitionDuration: const Duration(milliseconds: 350),
@@ -231,7 +255,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                         ),
                                       )
                                     : const Text(
-                                        "Login",
+                                        "Sign In",
                                         style: TextStyle(
                                           fontSize: 15,
                                           fontWeight: FontWeight.w700,
@@ -382,8 +406,7 @@ class _StyledTextField extends StatelessWidget {
         suffixIcon: suffixIcon,
         filled: true,
         fillColor: Colors.white.withOpacity(0.7),
-        contentPadding:
-            const EdgeInsets.symmetric(vertical: 14, horizontal: 4),
+        contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 4),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide.none,

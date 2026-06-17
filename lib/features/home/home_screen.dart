@@ -7,14 +7,8 @@ import '../../core/typography.dart';
 
 import '../../ui_kit/she_card.dart';
 import '../../ui_kit/mood_theme.dart';
-import '../../ui_kit/she_animated_navbar.dart';
 import '../../ui_kit/animated_mood_face.dart';
 import '../../ui_kit/cycle_calendar_card.dart';
-
-import '../track/track_screen.dart';
-import '../track/history_screen.dart';
-import '../track/insights_screen.dart';
-import '../learn/learn_page.dart';
 
 // ─────────────────────────────────────────────
 //  BACKEND DATA LAYER
@@ -507,7 +501,6 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
   int selectedMood = 2;
-  int navIndex = 0;
   int cycleDay = 12;
 
   final moods = MoodType.values;
@@ -798,28 +791,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           ),
         ],
       ),
-
-      // ── NAVBAR ──
-      bottomNavigationBar: SheAnimatedNavBar(
-        currentIndex: navIndex,
-        onTap: (index) {
-          setState(() => navIndex = index);
-          switch (index) {
-            case 1:
-              Navigator.push(context, _route(const InsightsScreen()));
-              break;
-            case 2:
-              Navigator.push(context, _route(const TrackScreen()));
-              break;
-            case 3:
-              Navigator.push(context, _route(const LearnPage()));
-              break;
-            case 4:
-              Navigator.push(context, _route(const HistoryScreen()));
-              break;
-          }
-        },
-      ),
     );
   }
 
@@ -983,13 +954,4 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     final month = months[now.month - 1];
     return '$weekday, $month ${now.day}';
   }
-
-  PageRoute _route(Widget page) => PageRouteBuilder(
-        pageBuilder: (_, __, ___) => page,
-        transitionsBuilder: (_, anim, __, child) => FadeTransition(
-          opacity: anim,
-          child: child,
-        ),
-        transitionDuration: const Duration(milliseconds: 280),
-      );
 }

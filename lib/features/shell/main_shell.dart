@@ -22,10 +22,10 @@ class _MainShellState extends State<MainShell> {
   // 0 Home, 1 Settings, 2 Track, 3 Learn, 4 History
   final List<Widget> _pages = const [
     HomeScreen(),
-    SettingsScreen(),
     TrackScreen(),
     LearnPage(),
     HistoryScreen(),
+    SettingsScreen(),
   ];
 
   @override

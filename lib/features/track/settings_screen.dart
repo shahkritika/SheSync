@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import '../../core/auth_service.dart';
+import '../../core/profile_service.dart';
 import '../login_screen.dart';
 import '../profile/user_profile_screen.dart';
 
@@ -28,6 +28,10 @@ class _SettingsScreenState extends State<SettingsScreen>
   final ageController = TextEditingController();
   String selectedAvatar = "🌸";
   final avatars = ["🌸", "🌺", "🌻", "🌼", "🌷", "💐", "🦋", "🌙"];
+  String? currentUsername;
+
+  // ── Health Profile from ProfileService ──
+  UserProfile? userProfile;
 
   // ── Notifications ──
   bool dailyReminder = true;
@@ -39,7 +43,6 @@ class _SettingsScreenState extends State<SettingsScreen>
   bool isDarkMode = false;
 
   bool isLoading = true;
-  String? currentUsername;
 
   @override
   void initState() {
@@ -48,8 +51,9 @@ class _SettingsScreenState extends State<SettingsScreen>
       vsync: this,
       duration: const Duration(milliseconds: 500),
     );
-    _fadeAnim = CurvedAnimation(parent: _animController, curve: Curves.easeInOut);
-    _loadSettings();
+    _fadeAnim =
+        CurvedAnimation(parent: _animController, curve: Curves.easeInOut);
+    _loadAll();
   }
 
   @override
@@ -60,9 +64,18 @@ class _SettingsScreenState extends State<SettingsScreen>
     super.dispose();
   }
 
+  Future<void> _loadAll() async {
+    await Future.wait([_loadSettings(), _loadProfile()]);
+    if (mounted) {
+      setState(() => isLoading = false);
+      _animController.forward();
+    }
+  }
+
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     final username = await AuthService.getUsername();
+    if (!mounted) return;
     setState(() {
       nameController.text = prefs.getString('name') ?? '';
       ageController.text = prefs.getString('age') ?? '';
@@ -75,9 +88,15 @@ class _SettingsScreenState extends State<SettingsScreen>
       final minute = prefs.getInt('reminderMinute') ?? 0;
       reminderTime = TimeOfDay(hour: hour, minute: minute);
       currentUsername = username;
-      isLoading = false;
     });
-    _animController.forward();
+  }
+
+  Future<void> _loadProfile() async {
+    try {
+      final profile = await ProfileService.getProfile();
+      if (!mounted) return;
+      setState(() => userProfile = profile);
+    } catch (_) {}
   }
 
   Future<void> _saveSettings() async {
@@ -98,7 +117,8 @@ class _SettingsScreenState extends State<SettingsScreen>
         content: const Text("✅  Settings saved!"),
         backgroundColor: accent,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.all(16),
       ),
     );
@@ -106,26 +126,82 @@ class _SettingsScreenState extends State<SettingsScreen>
 
   // ── Logout ──
   Future<void> _handleLogout() async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await _showConfirmDialog(
+      emoji: "👋",
+      title: "Log Out?",
+      message:
+          "You will be returned to the login screen. Your data will be saved.",
+      confirmText: "Log Out",
+      confirmColor: accent,
+    );
+    if (confirmed == true) {
+      await AuthService.logout();
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        PageRouteBuilder(
+          pageBuilder: (_, __, ___) => const LoginScreen(),
+          transitionsBuilder: (_, anim, __, child) =>
+              FadeTransition(opacity: anim, child: child),
+          transitionDuration: const Duration(milliseconds: 350),
+        ),
+        (route) => false,
+      );
+    }
+  }
+
+  // ── Delete Account ──
+  Future<void> _deleteAccount() async {
+    final confirmed = await _showConfirmDialog(
+      emoji: "⚠️",
+      title: "Delete Account?",
+      message:
+          "This will permanently delete your account and ALL data. This cannot be undone.",
+      confirmText: "Delete",
+      confirmColor: Colors.red.shade400,
+    );
+    if (confirmed != true) return;
+
+    final confirmController = TextEditingController();
+    final doubleConfirmed = await showDialog<bool>(
       context: context,
       builder: (_) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text("👋", style: TextStyle(fontSize: 40)),
-              const SizedBox(height: 12),
-              const Text("Log Out?",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const Text("🔴 Final Confirmation",
+                  style:
+                      TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
               Text(
-                "You will be returned to the login screen. Your data will be saved.",
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                'Type your username "$currentUsername" to confirm:',
+                style:
+                    TextStyle(color: Colors.grey.shade600, fontSize: 13),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 12),
+              TextField(
+                controller: confirmController,
+                style: const TextStyle(color: Colors.black),
+                decoration: InputDecoration(
+                  hintText: "Type username here",
+                  hintStyle: TextStyle(color: Colors.grey.shade400),
+                  filled: true,
+                  fillColor: Colors.grey.shade50,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.red.shade200),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.red.shade400),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
               Row(
                 children: [
                   Expanded(
@@ -144,13 +220,28 @@ class _SettingsScreenState extends State<SettingsScreen>
                   Expanded(
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF7ED6B2),
+                        backgroundColor: Colors.red.shade400,
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12)),
                         elevation: 0,
                       ),
-                      onPressed: () => Navigator.pop(context, true),
-                      child: const Text("Log Out",
+                      onPressed: () {
+                        if (confirmController.text.trim() == currentUsername) {
+                          Navigator.pop(context, true);
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: const Text("Username doesn't match!"),
+                              backgroundColor: Colors.red.shade400,
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                              margin: const EdgeInsets.all(16),
+                            ),
+                          );
+                        }
+                      },
+                      child: const Text("Confirm Delete",
                           style: TextStyle(color: Colors.white)),
                     ),
                   ),
@@ -162,8 +253,9 @@ class _SettingsScreenState extends State<SettingsScreen>
       ),
     );
 
-    if (confirmed == true) {
-      await AuthService.logout();
+    if (doubleConfirmed == true) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
         PageRouteBuilder(
@@ -182,31 +274,26 @@ class _SettingsScreenState extends State<SettingsScreen>
     try {
       final prefs = await SharedPreferences.getInstance();
       final allKeys = prefs.getKeys();
-
       final buffer = StringBuffer();
       buffer.writeln('SheSync Data Export');
       buffer.writeln('Exported on: ${DateTime.now().toString().split('.')[0]}');
       buffer.writeln('Username: ${currentUsername ?? "Unknown"}');
       buffer.writeln('---');
       buffer.writeln('Key,Value');
-
       for (final key in allKeys) {
-        final value = prefs.get(key);
-        buffer.writeln('$key,$value');
+        buffer.writeln('$key,${prefs.get(key)}');
       }
 
-      // Try to save to documents directory
       try {
         final directory = await getApplicationDocumentsDirectory();
         final file = File('${directory.path}/shesync_export.csv');
         await file.writeAsString(buffer.toString());
-
         if (!mounted) return;
         showDialog(
           context: context,
           builder: (_) => Dialog(
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24)),
             child: Padding(
               padding: const EdgeInsets.all(24),
               child: Column(
@@ -215,17 +302,14 @@ class _SettingsScreenState extends State<SettingsScreen>
                   const Text("📁", style: TextStyle(fontSize: 40)),
                   const SizedBox(height: 12),
                   const Text("Export Successful!",
-                      style:
-                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      style: TextStyle(
+                          fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
-                  Text(
-                    "File saved to:\n${file.path}",
-                    textAlign: TextAlign.center,
-                    style:
-                        TextStyle(color: Colors.grey.shade600, fontSize: 12),
-                  ),
-                  const SizedBox(height: 20),
-                  // Show data preview
+                  Text("Saved to:\n${file.path}",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                          color: Colors.grey.shade600, fontSize: 12)),
+                  const SizedBox(height: 16),
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
@@ -253,18 +337,14 @@ class _SettingsScreenState extends State<SettingsScreen>
                             Clipboard.setData(
                                 ClipboardData(text: buffer.toString()));
                             Navigator.pop(context);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content:
-                                    const Text("📋 Copied to clipboard!"),
-                                backgroundColor:
-                                    const Color(0xFF7ED6B2),
-                                behavior: SnackBarBehavior.floating,
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12)),
-                                margin: const EdgeInsets.all(16),
-                              ),
-                            );
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                              content: const Text("📋 Copied to clipboard!"),
+                              backgroundColor: accent,
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                              margin: const EdgeInsets.all(16),
+                            ));
                           },
                           child: const Text("Copy"),
                         ),
@@ -273,7 +353,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                       Expanded(
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF7ED6B2),
+                            backgroundColor: accent,
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12)),
                             elevation: 0,
@@ -291,138 +371,180 @@ class _SettingsScreenState extends State<SettingsScreen>
           ),
         );
       } catch (_) {
-        // Fallback: copy to clipboard
         await Clipboard.setData(ClipboardData(text: buffer.toString()));
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text("📋 Data copied to clipboard!"),
-            backgroundColor: const Color(0xFF7ED6B2),
-            behavior: SnackBarBehavior.floating,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            margin: const EdgeInsets.all(16),
-          ),
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Export failed: ${e.toString()}"),
-          backgroundColor: Colors.red.shade400,
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Text("📋 Data copied to clipboard!"),
+          backgroundColor: accent,
           behavior: SnackBarBehavior.floating,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           margin: const EdgeInsets.all(16),
-        ),
-      );
+        ));
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text("Export failed: ${e.toString()}"),
+        backgroundColor: Colors.red.shade400,
+        behavior: SnackBarBehavior.floating,
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
+      ));
     }
   }
 
   // ── Clear All Data ──
   Future<void> _clearAllData() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (_) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text("🗑️", style: TextStyle(fontSize: 40)),
-              const SizedBox(height: 12),
-              const Text("Clear All Data?",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              Text(
-                "This will permanently delete all your tracking history and settings. This cannot be undone.",
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      style: OutlinedButton.styleFrom(
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
-                        side: BorderSide(color: Colors.grey.shade300),
-                      ),
-                      onPressed: () => Navigator.pop(context, false),
-                      child: const Text("Cancel",
-                          style: TextStyle(color: Colors.black54)),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red.shade400,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
-                        elevation: 0,
-                      ),
-                      onPressed: () => Navigator.pop(context, true),
-                      child: const Text("Delete",
-                          style: TextStyle(color: Colors.white)),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
+    final confirmed = await _showConfirmDialog(
+      emoji: "🗑️",
+      title: "Clear All Data?",
+      message:
+          "This will permanently delete all your tracking history and settings. This cannot be undone.",
+      confirmText: "Delete",
+      confirmColor: Colors.red.shade400,
     );
-
     if (confirmed == true) {
       final prefs = await SharedPreferences.getInstance();
+      final username = prefs.getString('auth_username');
+      final password = prefs.getString('auth_password');
+      final loggedIn = prefs.getBool('auth_logged_in');
       await prefs.clear();
+      if (username != null) await prefs.setString('auth_username', username);
+      if (password != null) await prefs.setString('auth_password', password);
+      if (loggedIn != null) await prefs.setBool('auth_logged_in', loggedIn);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text("All data cleared"),
-          backgroundColor: Colors.red.shade400,
-          behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          margin: const EdgeInsets.all(16),
-        ),
-      );
-      _loadSettings();
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: const Text("All data cleared"),
+        backgroundColor: Colors.red.shade400,
+        behavior: SnackBarBehavior.floating,
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
+      ));
+      _loadAll();
     }
   }
 
-  // ── Pick Reminder Time ──
-  Future<void> _pickTime() async {
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: reminderTime,
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(primary: accent),
-          ),
-          child: child!,
-        );
-      },
-    );
-    if (picked != null) setState(() => reminderTime = picked);
-  }
-
   // ── Rate App ──
-  Future<void> _rateApp() async {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text("⭐ Thank you! Rating will open in store."),
-        backgroundColor: Colors.amber.shade600,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        margin: const EdgeInsets.all(16),
+  void _rateApp() {
+    int selectedStars = 0;
+    showDialog(
+      context: context,
+      builder: (_) => StatefulBuilder(
+        builder: (context, setStateDialog) => Dialog(
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24)),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text("⭐ Rate SheSync",
+                    style: TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                Text("How would you rate your experience?",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        color: Colors.grey.shade600, fontSize: 13)),
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(5, (i) {
+                    final filled = i < selectedStars;
+                    return GestureDetector(
+                      onTap: () =>
+                          setStateDialog(() => selectedStars = i + 1),
+                      child: Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: Icon(
+                          filled
+                              ? Icons.star_rounded
+                              : Icons.star_outline_rounded,
+                          color: filled
+                              ? Colors.amber.shade400
+                              : Colors.grey.shade300,
+                          size: 44,
+                        ),
+                      ),
+                    );
+                  }),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  selectedStars == 0
+                      ? "Tap to rate"
+                      : selectedStars == 1
+                          ? "Poor 😞"
+                          : selectedStars == 2
+                              ? "Fair 😐"
+                              : selectedStars == 3
+                                  ? "Good 🙂"
+                                  : selectedStars == 4
+                                      ? "Great 😊"
+                                      : "Excellent! 🤩",
+                  style: TextStyle(
+                    color: selectedStars == 0
+                        ? Colors.grey.shade400
+                        : Colors.amber.shade600,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 15,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                          side: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text("Cancel",
+                            style: TextStyle(color: Colors.black54)),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: selectedStars > 0
+                              ? Colors.amber.shade400
+                              : Colors.grey.shade300,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                          elevation: 0,
+                        ),
+                        onPressed: selectedStars > 0
+                            ? () {
+                                Navigator.pop(context);
+                                ScaffoldMessenger.of(context)
+                                    .showSnackBar(SnackBar(
+                                  content: Text(
+                                      "Thanks for your $selectedStars⭐ rating!"),
+                                  backgroundColor: Colors.amber.shade600,
+                                  behavior: SnackBarBehavior.floating,
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius:
+                                          BorderRadius.circular(12)),
+                                  margin: const EdgeInsets.all(16),
+                                ));
+                              }
+                            : null,
+                        child: const Text("Submit",
+                            style: TextStyle(color: Colors.white)),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -433,15 +555,14 @@ class _SettingsScreenState extends State<SettingsScreen>
         text:
             'Check out SheSync - your personal women\'s health companion! 🌸'));
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text("📋 Share link copied to clipboard!"),
-        backgroundColor: const Color(0xFF7ED6B2),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        margin: const EdgeInsets.all(16),
-      ),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: const Text("📋 Share link copied to clipboard!"),
+      backgroundColor: accent,
+      behavior: SnackBarBehavior.floating,
+      shape:
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin: const EdgeInsets.all(16),
+    ));
   }
 
   // ── Send Feedback ──
@@ -450,7 +571,8 @@ class _SettingsScreenState extends State<SettingsScreen>
     showDialog(
       context: context,
       builder: (_) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24)),
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
@@ -458,10 +580,12 @@ class _SettingsScreenState extends State<SettingsScreen>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text("💬 Send Feedback",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  style: TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
               Text("We'd love to hear from you!",
-                  style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                  style: TextStyle(
+                      color: Colors.grey.shade600, fontSize: 13)),
               const SizedBox(height: 16),
               TextField(
                 controller: feedbackController,
@@ -473,10 +597,6 @@ class _SettingsScreenState extends State<SettingsScreen>
                   filled: true,
                   fillColor: Colors.grey.shade50,
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide(color: Colors.grey.shade200),
-                  ),
-                  enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
                     borderSide: BorderSide(color: Colors.grey.shade200),
                   ),
@@ -512,16 +632,14 @@ class _SettingsScreenState extends State<SettingsScreen>
                       ),
                       onPressed: () {
                         Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: const Text("💚 Feedback sent! Thank you."),
-                            backgroundColor: accent,
-                            behavior: SnackBarBehavior.floating,
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12)),
-                            margin: const EdgeInsets.all(16),
-                          ),
-                        );
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          content: const Text("💚 Feedback sent! Thank you."),
+                          backgroundColor: accent,
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                          margin: const EdgeInsets.all(16),
+                        ));
                       },
                       child: const Text("Send",
                           style: TextStyle(color: Colors.white)),
@@ -536,7 +654,102 @@ class _SettingsScreenState extends State<SettingsScreen>
     );
   }
 
-  // ── Helpers ──
+  // ── Pick Reminder Time ──
+  Future<void> _pickTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: reminderTime,
+      builder: (context, child) => Theme(
+        data: Theme.of(context)
+            .copyWith(colorScheme: ColorScheme.light(primary: accent)),
+        child: child!,
+      ),
+    );
+    if (picked != null) setState(() => reminderTime = picked);
+  }
+
+  // ── Open Health Profile (editable) ──
+  Future<void> _openHealthProfile() async {
+    await Navigator.of(context).push(
+      PageRouteBuilder(
+        pageBuilder: (_, __, ___) => const UserProfileScreen(),
+        transitionsBuilder: (_, anim, __, child) =>
+            FadeTransition(opacity: anim, child: child),
+        transitionDuration: const Duration(milliseconds: 280),
+      ),
+    );
+    // Reload profile after returning
+    await _loadProfile();
+    setState(() {});
+  }
+
+  // ── Reusable confirm dialog ──
+  Future<bool?> _showConfirmDialog({
+    required String emoji,
+    required String title,
+    required String message,
+    required String confirmText,
+    required Color confirmColor,
+  }) {
+    return showDialog<bool>(
+      context: context,
+      builder: (_) => Dialog(
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(emoji, style: const TextStyle(fontSize: 40)),
+              const SizedBox(height: 12),
+              Text(title,
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Text(message,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      color: Colors.grey.shade600, fontSize: 13)),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                        side: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text("Cancel",
+                          style: TextStyle(color: Colors.black54)),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: confirmColor,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                        elevation: 0,
+                      ),
+                      onPressed: () => Navigator.pop(context, true),
+                      child: Text(confirmText,
+                          style: const TextStyle(color: Colors.white)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── UI Helpers ──
   Widget _sectionHeader(String title, IconData icon) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(0, 8, 0, 10),
@@ -613,7 +826,8 @@ class _SettingsScreenState extends State<SettingsScreen>
                         color: Color(0xFF333333))),
                 const SizedBox(height: 2),
                 Text(subtitle,
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                    style: TextStyle(
+                        fontSize: 12, color: Colors.grey.shade500)),
               ],
             ),
           ),
@@ -667,7 +881,8 @@ class _SettingsScreenState extends State<SettingsScreen>
               ),
             ),
             trailing ??
-                Icon(Icons.chevron_right, color: Colors.grey.shade400, size: 20),
+                Icon(Icons.chevron_right,
+                    color: Colors.grey.shade400, size: 20),
           ],
         ),
       ),
@@ -675,7 +890,36 @@ class _SettingsScreenState extends State<SettingsScreen>
   }
 
   Widget _divider() => Divider(
-      height: 1, indent: 16, endIndent: 16, color: Colors.grey.shade100);
+      height: 1,
+      indent: 16,
+      endIndent: 16,
+      color: Colors.grey.shade100);
+
+  // ── Health info chip ──
+  Widget _infoChip(String label, String value, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Column(
+        children: [
+          Text(value,
+              style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: color)),
+          const SizedBox(height: 2),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 10,
+                  color: color.withOpacity(0.8))),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -747,29 +991,33 @@ class _SettingsScreenState extends State<SettingsScreen>
                               ),
                               child: Center(
                                 child: Text(selectedAvatar,
-                                    style: const TextStyle(fontSize: 32)),
+                                    style:
+                                        const TextStyle(fontSize: 32)),
                               ),
                             ),
                           ),
                           const SizedBox(width: 16),
                           Expanded(
                             child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.start,
                               children: [
+                                // ✅ Shows username from signup
                                 Text(
-                                  nameController.text.isEmpty
-                                      ? "Hello! 👋"
-                                      : "Hi, ${nameController.text}!",
+                                  currentUsername ?? "Welcome! 👋",
                                   style: const TextStyle(
                                       color: Colors.white,
-                                      fontSize: 18,
+                                      fontSize: 20,
                                       fontWeight: FontWeight.bold),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  "@${currentUsername ?? ''}",
+                                  userProfile?.age != null
+                                      ? "Age ${userProfile!.age} · ${userProfile?.weightKg != null ? '${userProfile!.weightKg}kg' : ''}"
+                                      : "Tap to set up profile",
                                   style: const TextStyle(
-                                      color: Colors.white70, fontSize: 13),
+                                      color: Colors.white70,
+                                      fontSize: 13),
                                 ),
                               ],
                             ),
@@ -780,8 +1028,10 @@ class _SettingsScreenState extends State<SettingsScreen>
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 12, vertical: 8),
                               decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.25),
-                                borderRadius: BorderRadius.circular(12),
+                                color:
+                                    Colors.white.withOpacity(0.25),
+                                borderRadius:
+                                    BorderRadius.circular(12),
                               ),
                               child: const Row(
                                 children: [
@@ -792,10 +1042,77 @@ class _SettingsScreenState extends State<SettingsScreen>
                                       style: TextStyle(
                                           color: Colors.white,
                                           fontSize: 12,
-                                          fontWeight: FontWeight.w600)),
+                                          fontWeight:
+                                              FontWeight.w600)),
                                 ],
                               ),
                             ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // ── HEALTH PROFILE CARD ──
+                    _sectionHeader(
+                        "Health Profile", Icons.favorite_outline),
+                    _sectionCard(
+                      child: Column(
+                        children: [
+                          // Info chips row
+                          if (userProfile != null &&
+                              (userProfile!.age != null ||
+                                  userProfile!.heightCm != null ||
+                                  userProfile!.weightKg != null ||
+                                  userProfile!.averageCycleLength != 28)) ...[
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(
+                                  16, 16, 16, 4),
+                              child: Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  if (userProfile!.age != null)
+                                    _infoChip("Age",
+                                        "${userProfile!.age} yrs",
+                                        Colors.purple.shade400),
+                                  if (userProfile!.heightCm != null)
+                                    _infoChip("Height",
+                                        "${userProfile!.heightCm} cm",
+                                        Colors.blue.shade400),
+                                  if (userProfile!.weightKg != null)
+                                    _infoChip("Weight",
+                                        "${userProfile!.weightKg} kg",
+                                        Colors.orange.shade400),
+                                  _infoChip(
+                                      "Cycle",
+                                      "${userProfile!.averageCycleLength}d",
+                                      accent),
+                                  _infoChip(
+                                      "Period",
+                                      "${userProfile!.averagePeriodLength}d",
+                                      Colors.red.shade300),
+                                  if (userProfile!.lastPeriodStartDate !=
+                                      null)
+                                    _infoChip(
+                                        "Last Period",
+                                        userProfile!
+                                            .lastPeriodStartDate!,
+                                        Colors.pink.shade300),
+                                ],
+                              ),
+                            ),
+                            _divider(),
+                          ],
+                          _tapRow(
+                            title: userProfile?.age != null
+                                ? "Edit Health Profile"
+                                : "Set Up Health Profile",
+                            subtitle: userProfile?.age != null
+                                ? "Update your age, height, weight & cycle details"
+                                : "Add your health details for better tracking",
+                            icon: Icons.edit_outlined,
+                            iconColor: const Color(0xFFE91E63),
+                            onTap: _openHealthProfile,
                           ),
                         ],
                       ),
@@ -807,57 +1124,34 @@ class _SettingsScreenState extends State<SettingsScreen>
                       child: Column(
                         children: [
                           Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+                            padding: const EdgeInsets.fromLTRB(
+                                16, 14, 16, 14),
                             child: TextField(
                               controller: nameController,
                               onChanged: (_) => setState(() {}),
                               style: const TextStyle(
                                   color: Colors.black, fontSize: 14),
                               decoration: InputDecoration(
-                                labelText: "Your Name",
-                                labelStyle:
-                                    TextStyle(color: Colors.grey.shade500),
-                                prefixIcon:
-                                    Icon(Icons.person, color: accent, size: 20),
-                                filled: true,
-                                fillColor: Colors.grey.shade50,
-                                contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 16, vertical: 14),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                  borderSide: BorderSide.none,
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                  borderSide: BorderSide(color: accent),
-                                ),
-                              ),
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 4, 16, 14),
-                            child: TextField(
-                              controller: ageController,
-                              keyboardType: TextInputType.number,
-                              style: const TextStyle(
-                                  color: Colors.black, fontSize: 14),
-                              decoration: InputDecoration(
-                                labelText: "Your Age",
-                                labelStyle:
-                                    TextStyle(color: Colors.grey.shade500),
-                                prefixIcon: Icon(Icons.cake_outlined,
+                                labelText: "Display Name",
+                                labelStyle: TextStyle(
+                                    color: Colors.grey.shade500),
+                                prefixIcon: Icon(Icons.person,
                                     color: accent, size: 20),
                                 filled: true,
                                 fillColor: Colors.grey.shade50,
-                                contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 16, vertical: 14),
+                                contentPadding:
+                                    const EdgeInsets.symmetric(
+                                        horizontal: 16, vertical: 14),
                                 border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(14),
+                                  borderRadius:
+                                      BorderRadius.circular(14),
                                   borderSide: BorderSide.none,
                                 ),
                                 focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                  borderSide: BorderSide(color: accent),
+                                  borderRadius:
+                                      BorderRadius.circular(14),
+                                  borderSide:
+                                      BorderSide(color: accent),
                                 ),
                               ),
                             ),
@@ -865,38 +1159,21 @@ class _SettingsScreenState extends State<SettingsScreen>
                           _divider(),
                           _tapRow(
                             title: "Choose Avatar",
-                            subtitle: "Your profile icon: $selectedAvatar",
+                            subtitle:
+                                "Your profile icon: $selectedAvatar",
                             icon: Icons.face_retouching_natural,
                             onTap: _showAvatarPicker,
                             trailing: Text(selectedAvatar,
-                                style: const TextStyle(fontSize: 22)),
-                          ),
-                          _divider(),
-                          _tapRow(
-                            title: "Health & Cycle Profile",
-                            subtitle:
-                                "Age, height, weight & cycle tracking details",
-                            icon: Icons.favorite_outline,
-                            iconColor: const Color(0xFFE91E63),
-                            onTap: () {
-                              Navigator.of(context).push(
-                                PageRouteBuilder(
-                                  pageBuilder: (_, __, ___) =>
-                                      const UserProfileScreen(),
-                                  transitionsBuilder: (_, anim, __, child) =>
-                                      FadeTransition(opacity: anim, child: child),
-                                  transitionDuration:
-                                      const Duration(milliseconds: 280),
-                                ),
-                              );
-                            },
+                                style:
+                                    const TextStyle(fontSize: 22)),
                           ),
                         ],
                       ),
                     ),
 
                     // ── NOTIFICATIONS ──
-                    _sectionHeader("Notifications", Icons.notifications_outlined),
+                    _sectionHeader(
+                        "Notifications", Icons.notifications_outlined),
                     _sectionCard(
                       child: Column(
                         children: [
@@ -904,14 +1181,16 @@ class _SettingsScreenState extends State<SettingsScreen>
                             title: "Daily Reminder",
                             subtitle: "Remind me to track every day",
                             value: dailyReminder,
-                            onChanged: (v) => setState(() => dailyReminder = v),
+                            onChanged: (v) =>
+                                setState(() => dailyReminder = v),
                             icon: Icons.today,
                             iconColor: accent,
                           ),
                           _divider(),
                           _toggleRow(
                             title: "Period Reminder",
-                            subtitle: "Alert 2 days before predicted period",
+                            subtitle:
+                                "Alert 2 days before predicted period",
                             value: periodReminder,
                             onChanged: (v) =>
                                 setState(() => periodReminder = v),
@@ -921,7 +1200,8 @@ class _SettingsScreenState extends State<SettingsScreen>
                           _divider(),
                           _toggleRow(
                             title: "Medication Reminder",
-                            subtitle: "Remind me to take my medication",
+                            subtitle:
+                                "Remind me to take my medication",
                             value: medicationReminder,
                             onChanged: (v) =>
                                 setState(() => medicationReminder = v),
@@ -951,7 +1231,8 @@ class _SettingsScreenState extends State<SettingsScreen>
                     ),
 
                     // ── APPEARANCE ──
-                    _sectionHeader("Appearance", Icons.palette_outlined),
+                    _sectionHeader(
+                        "Appearance", Icons.palette_outlined),
                     _sectionCard(
                       child: _toggleRow(
                         title: "Dark Mode",
@@ -970,7 +1251,8 @@ class _SettingsScreenState extends State<SettingsScreen>
                         children: [
                           _tapRow(
                             title: "Export Data",
-                            subtitle: "Save your tracking history as CSV",
+                            subtitle:
+                                "Save your tracking history as CSV",
                             icon: Icons.download_outlined,
                             iconColor: Colors.blue.shade400,
                             onTap: _exportData,
@@ -978,7 +1260,8 @@ class _SettingsScreenState extends State<SettingsScreen>
                           _divider(),
                           _tapRow(
                             title: "Clear All Data",
-                            subtitle: "Permanently delete all your data",
+                            subtitle:
+                                "Permanently delete all your data",
                             icon: Icons.delete_outline,
                             iconColor: Colors.red.shade400,
                             titleColor: Colors.red.shade400,
@@ -1028,14 +1311,17 @@ class _SettingsScreenState extends State<SettingsScreen>
                                   padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
                                     color: Colors.grey.shade100,
-                                    borderRadius: BorderRadius.circular(10),
+                                    borderRadius:
+                                        BorderRadius.circular(10),
                                   ),
                                   child: Icon(Icons.info_outline,
-                                      size: 18, color: Colors.grey.shade500),
+                                      size: 18,
+                                      color: Colors.grey.shade500),
                                 ),
                                 const SizedBox(width: 12),
                                 Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
                                   children: [
                                     const Text("App Version",
                                         style: TextStyle(
@@ -1045,7 +1331,8 @@ class _SettingsScreenState extends State<SettingsScreen>
                                     Text("SheSync v1.0.0",
                                         style: TextStyle(
                                             fontSize: 12,
-                                            color: Colors.grey.shade500)),
+                                            color:
+                                                Colors.grey.shade500)),
                                   ],
                                 ),
                                 const Spacer(),
@@ -1054,13 +1341,15 @@ class _SettingsScreenState extends State<SettingsScreen>
                                       horizontal: 10, vertical: 4),
                                   decoration: BoxDecoration(
                                     color: accent.withOpacity(0.15),
-                                    borderRadius: BorderRadius.circular(8),
+                                    borderRadius:
+                                        BorderRadius.circular(8),
                                   ),
                                   child: const Text("Latest",
                                       style: TextStyle(
                                           color: Color(0xFF2E7D60),
                                           fontSize: 11,
-                                          fontWeight: FontWeight.bold)),
+                                          fontWeight:
+                                              FontWeight.bold)),
                                 ),
                               ],
                             ),
@@ -1069,36 +1358,37 @@ class _SettingsScreenState extends State<SettingsScreen>
                       ),
                     ),
 
-                    // ── Logout Button ──
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 54,
-                      child: OutlinedButton(
-                        style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: Colors.red.shade300, width: 1.5),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16)),
-                        ),
-                        onPressed: _handleLogout,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.logout,
-                                color: Colors.red.shade400, size: 20),
-                            const SizedBox(width: 8),
-                            Text("Log Out",
-                                style: TextStyle(
-                                    color: Colors.red.shade400,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold)),
-                          ],
-                        ),
+                    // ── ACCOUNT ──
+                    _sectionHeader(
+                        "Account", Icons.manage_accounts_outlined),
+                    _sectionCard(
+                      child: Column(
+                        children: [
+                          _tapRow(
+                            title: "Log Out",
+                            subtitle: "Sign out of your account",
+                            icon: Icons.logout,
+                            iconColor: Colors.orange.shade400,
+                            onTap: _handleLogout,
+                          ),
+                          _divider(),
+                          _tapRow(
+                            title: "Delete Account",
+                            subtitle:
+                                "Permanently remove your account & all data",
+                            icon: Icons.person_remove_outlined,
+                            iconColor: Colors.red.shade400,
+                            titleColor: Colors.red.shade400,
+                            onTap: _deleteAccount,
+                            trailing: Icon(Icons.chevron_right,
+                                color: Colors.red.shade300, size: 20),
+                          ),
+                        ],
                       ),
                     ),
 
                     // ── Save Button ──
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                     SizedBox(
                       width: double.infinity,
                       height: 54,
@@ -1137,22 +1427,24 @@ class _SettingsScreenState extends State<SettingsScreen>
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+          borderRadius:
+              BorderRadius.vertical(top: Radius.circular(24))),
       builder: (_) => Container(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 40, height: 4,
+              width: 40,
+              height: 4,
               decoration: BoxDecoration(
                   color: Colors.grey.shade300,
                   borderRadius: BorderRadius.circular(2)),
             ),
             const SizedBox(height: 20),
             const Text("Choose your avatar",
-                style:
-                    TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                style: TextStyle(
+                    fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 20),
             Wrap(
               spacing: 16,
@@ -1166,19 +1458,23 @@ class _SettingsScreenState extends State<SettingsScreen>
                   },
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 150),
-                    width: 60, height: 60,
+                    width: 60,
+                    height: 60,
                     decoration: BoxDecoration(
                       color: selected
                           ? accent.withOpacity(0.2)
                           : Colors.grey.shade100,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                          color: selected ? accent : Colors.transparent,
+                          color: selected
+                              ? accent
+                              : Colors.transparent,
                           width: 2),
                     ),
                     child: Center(
                         child: Text(a,
-                            style: const TextStyle(fontSize: 28))),
+                            style:
+                                const TextStyle(fontSize: 28))),
                   ),
                 );
               }).toList(),

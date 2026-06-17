@@ -15,13 +15,13 @@ class SheAnimatedNavBar extends StatefulWidget {
 }
 
 class _SheAnimatedNavBarState extends State<SheAnimatedNavBar> {
-  final List<IconData> icons = [
-    Icons.home_rounded,
-    Icons.track_changes_rounded,
-    Icons.auto_stories_rounded, // 🌸 Learn (Pinterest / Stories vibe)
-    Icons.history_rounded,
-    Icons.settings_rounded,
-  ];
+final List<IconData> icons = [
+  Icons.home_rounded,// index 0 
+  Icons.track_changes_rounded, // index 1 
+  Icons.auto_stories_rounded, // index 2 
+  Icons.history_rounded, // index 3
+  Icons.settings_rounded, // index 4
+];
 
   final List<String> labels = [
     "Home",

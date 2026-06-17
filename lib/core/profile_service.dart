@@ -8,7 +8,7 @@ import 'auth_service.dart';
 ///  Talks to GET/PATCH /api/auth/profile/
 ///  Requires a valid access token (attaches it automatically).
 /// ─────────────────────────────────────────────
-class ProfileData {
+class UserProfile {
   final int? age;
   final double? heightCm;
   final double? weightKg;
@@ -18,7 +18,7 @@ class ProfileData {
   final int? currentCycleDay;
   final String? currentPhase;
 
-  ProfileData({
+  UserProfile({
     this.age,
     this.heightCm,
     this.weightKg,
@@ -29,8 +29,8 @@ class ProfileData {
     this.currentPhase,
   });
 
-  factory ProfileData.fromJson(Map<String, dynamic> json) {
-    return ProfileData(
+  factory UserProfile.fromJson(Map<String, dynamic> json) {
+    return UserProfile(
       age: json['age'] as int?,
       heightCm: (json['height_cm'] as num?)?.toDouble(),
       weightKg: (json['weight_kg'] as num?)?.toDouble(),
@@ -47,7 +47,7 @@ class ProfileService {
   static const String baseUrl = AuthService.baseUrl;
 
   /// Fetches the current user's profile.
-  static Future<ProfileData> getProfile() async {
+  static Future<UserProfile> getProfile() async {
     final token = await AuthService.getAccessToken();
     if (token == null) {
       throw AuthException("You're not logged in. Please sign in again.");
@@ -70,7 +70,7 @@ class ProfileService {
     }
 
     if (response.statusCode == 200) {
-      return ProfileData.fromJson(jsonDecode(response.body));
+      return UserProfile.fromJson(jsonDecode(response.body));
     }
     if (response.statusCode == 401) {
       throw AuthException("Your session expired. Please sign in again.");
@@ -79,7 +79,7 @@ class ProfileService {
   }
 
   /// Updates the current user's profile. Only non-null fields are sent.
-  static Future<ProfileData> updateProfile({
+  static Future<UserProfile> updateProfile({
     int? age,
     double? heightCm,
     double? weightKg,
@@ -124,7 +124,7 @@ class ProfileService {
     }
 
     if (response.statusCode == 200) {
-      return ProfileData.fromJson(jsonDecode(response.body));
+      return UserProfile.fromJson(jsonDecode(response.body));
     }
     if (response.statusCode == 401) {
       throw AuthException("Your session expired. Please sign in again.");

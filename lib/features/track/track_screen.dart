@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../core/colors.dart';
 import 'track_model.dart';
 import 'track_storage.dart';
 
@@ -12,6 +11,7 @@ class TrackScreen extends StatefulWidget {
 
 class _TrackScreenState extends State<TrackScreen>
     with SingleTickerProviderStateMixin {
+
   // ── Mood ──
   int selectedMood = 2;
   final moods = ["😢", "😐", "🙂", "😊", "😍"];
@@ -33,16 +33,9 @@ class _TrackScreenState extends State<TrackScreen>
 
   // ── Symptoms ──
   final symptoms = [
-    "🤕 Cramps",
-    "🫠 Bloating",
-    "🤯 Headache",
-    "😤 Acne",
-    "😴 Fatigue",
-    "😤 Mood Swings",
-    "🔙 Back Pain",
-    "🤢 Nausea",
-    "🥵 Hot Flashes",
-    "💧 Discharge",
+    "🤕 Cramps", "🫠 Bloating", "🤯 Headache", "😤 Acne",
+    "😴 Fatigue", "😤 Mood Swings", "🔙 Back Pain",
+    "🤢 Nausea", "🥵 Hot Flashes", "💧 Discharge",
   ];
   final Set<String> selectedSymptoms = {};
 
@@ -53,11 +46,11 @@ class _TrackScreenState extends State<TrackScreen>
   double sleepHours = 7;
 
   // ── Exercise ──
-  String selectedExercise = "Rest";
+  String selectedExercise = "Rest 🛋️";
   final exercises = ["Rest 🛋️", "Walk 🚶", "Yoga 🧘", "Gym 🏋️", "Run 🏃"];
 
   // ── Diet ──
-  String selectedDiet = "Moderate";
+  String selectedDiet = "Moderate 🍱";
   final diets = ["Healthy 🥗", "Moderate 🍱", "Unhealthy 🍔"];
 
   // ── Temperature ──
@@ -73,6 +66,9 @@ class _TrackScreenState extends State<TrackScreen>
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
 
+  static const Color accent = Color(0xFF7ED6B2);
+  static const Color bg = Color(0xFFF2FFFA);
+
   @override
   void initState() {
     super.initState();
@@ -80,10 +76,7 @@ class _TrackScreenState extends State<TrackScreen>
       vsync: this,
       duration: const Duration(milliseconds: 600),
     );
-    _fadeAnim = CurvedAnimation(
-      parent: _animController,
-      curve: Curves.easeInOut,
-    );
+    _fadeAnim = CurvedAnimation(parent: _animController, curve: Curves.easeInOut);
     _animController.forward();
   }
 
@@ -95,16 +88,42 @@ class _TrackScreenState extends State<TrackScreen>
     super.dispose();
   }
 
+  // ── Save Entry ──
   void saveEntry() async {
     final entry = TrackEntry(
       date: DateTime.now().toString(),
       mood: selectedMood,
       cycleDay: cycleDay,
+      flow: selectedFlow,
+      symptoms: selectedSymptoms.toList(),
+      waterGlasses: waterGlasses,
+      sleepHours: sleepHours,
+      exercise: selectedExercise,
+      diet: selectedDiet,
+      temperature: tempController.text.trim(),
+      tookMedication: tookMedication,
+      notes: notesController.text.trim(),
     );
 
     await TrackStorage.saveEntry(entry);
 
     if (!mounted) return;
+
+    // Reset all fields after saving
+    setState(() {
+      selectedMood = 2;
+      cycleDay = 1;
+      selectedFlow = 0;
+      selectedSymptoms.clear();
+      waterGlasses = 0;
+      sleepHours = 7;
+      selectedExercise = "Rest 🛋️";
+      selectedDiet = "Moderate 🍱";
+      tookMedication = false;
+    });
+    tempController.clear();
+    notesController.clear();
+
     showDialog(
       context: context,
       builder: (_) => Dialog(
@@ -116,33 +135,22 @@ class _TrackScreenState extends State<TrackScreen>
             children: [
               const Text("🌸", style: TextStyle(fontSize: 48)),
               const SizedBox(height: 12),
-              const Text(
-                "Entry Saved!",
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              const Text("Entry Saved!",
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
-              Text(
-                "Your health data for today has been recorded.",
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey.shade600),
-              ),
+              Text("Your health data for today has been recorded.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey.shade600)),
               const SizedBox(height: 20),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF7ED6B2),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                  backgroundColor: accent,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   minimumSize: const Size(double.infinity, 44),
+                  elevation: 0,
                 ),
                 onPressed: () => Navigator.pop(context),
-                child: const Text(
-                  "Done",
-                  style: TextStyle(color: Colors.white),
-                ),
+                child: const Text("Done", style: TextStyle(color: Colors.white)),
               ),
             ],
           ),
@@ -151,7 +159,7 @@ class _TrackScreenState extends State<TrackScreen>
     );
   }
 
-  // ── Reusable Section Card ──
+  // ── Section Card ──
   Widget _sectionCard({required String title, required Widget child}) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -160,24 +168,14 @@ class _TrackScreenState extends State<TrackScreen>
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
-          BoxShadow(
-            color: Colors.pink.withOpacity(0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
+          BoxShadow(color: Colors.pink.withOpacity(0.06), blurRadius: 12, offset: const Offset(0, 4)),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF444444),
-            ),
-          ),
+          Text(title,
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Color(0xFF444444))),
           const SizedBox(height: 14),
           child,
         ],
@@ -187,37 +185,22 @@ class _TrackScreenState extends State<TrackScreen>
 
   @override
   Widget build(BuildContext context) {
-    final accent = const Color(0xFF7ED6B2);
-    final bg = const Color(0xFFF2FFFA);
-
     return Scaffold(
       backgroundColor: bg,
       appBar: AppBar(
         backgroundColor: bg,
         elevation: 0,
         centerTitle: true,
-        title: const Text(
-          "Track Today 🌸",
-          style: TextStyle(
-            color: Color(0xFF333333),
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-          ),
-        ),
+        title: const Text("Track Today 🌸",
+            style: TextStyle(color: Color(0xFF333333), fontWeight: FontWeight.bold, fontSize: 18)),
         iconTheme: const IconThemeData(color: Color(0xFF333333)),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 12),
             child: TextButton(
               onPressed: saveEntry,
-              child: Text(
-                "Save",
-                style: TextStyle(
-                  color: accent,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
+              child: const Text("Save",
+                  style: TextStyle(color: accent, fontWeight: FontWeight.bold, fontSize: 16)),
             ),
           ),
         ],
@@ -236,8 +219,8 @@ class _TrackScreenState extends State<TrackScreen>
                 padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 18),
                 margin: const EdgeInsets.only(bottom: 16),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [accent, const Color(0xFFB2EED6)],
+                  gradient: const LinearGradient(
+                    colors: [accent, Color(0xFFB2EED6)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -247,14 +230,8 @@ class _TrackScreenState extends State<TrackScreen>
                   children: [
                     const Icon(Icons.calendar_today, color: Colors.white, size: 20),
                     const SizedBox(width: 10),
-                    Text(
-                      _formatDate(DateTime.now()),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 15,
-                      ),
-                    ),
+                    Text(_formatDate(DateTime.now()),
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 15)),
                     const Spacer(),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -262,13 +239,8 @@ class _TrackScreenState extends State<TrackScreen>
                         color: Colors.white.withOpacity(0.3),
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: Text(
-                        "Day $cycleDay",
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                      child: Text("Day $cycleDay",
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                     ),
                   ],
                 ),
@@ -277,53 +249,35 @@ class _TrackScreenState extends State<TrackScreen>
               // ── Mood ──
               _sectionCard(
                 title: "How do you feel today? 💭",
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: List.generate(moods.length, (i) {
-                        final selected = selectedMood == i;
-                        return GestureDetector(
-                          onTap: () => setState(() => selectedMood = i),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: selected
-                                  ? accent.withOpacity(0.2)
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(
-                                color: selected ? accent : Colors.transparent,
-                                width: 2,
-                              ),
-                            ),
-                            child: Column(
-                              children: [
-                                Text(
-                                  moods[i],
-                                  style: TextStyle(
-                                    fontSize: selected ? 32 : 26,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  moodLabels[i],
-                                  style: TextStyle(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: List.generate(moods.length, (i) {
+                    final selected = selectedMood == i;
+                    return GestureDetector(
+                      onTap: () => setState(() => selectedMood = i),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: selected ? accent.withOpacity(0.2) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                              color: selected ? accent : Colors.transparent, width: 2),
+                        ),
+                        child: Column(
+                          children: [
+                            Text(moods[i], style: TextStyle(fontSize: selected ? 32 : 26)),
+                            const SizedBox(height: 4),
+                            Text(moodLabels[i],
+                                style: TextStyle(
                                     fontSize: 10,
                                     color: selected ? accent : Colors.grey,
-                                    fontWeight: selected
-                                        ? FontWeight.bold
-                                        : FontWeight.normal,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      }),
-                    ),
-                  ],
+                                    fontWeight: selected ? FontWeight.bold : FontWeight.normal)),
+                          ],
+                        ),
+                      ),
+                    );
+                  }),
                 ),
               ),
 
@@ -335,26 +289,14 @@ class _TrackScreenState extends State<TrackScreen>
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
+                        Text("Day $cycleDay",
+                            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: accent)),
                         Text(
-                          "Day $cycleDay",
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: accent,
-                          ),
-                        ),
-                        Text(
-                          cycleDay <= 5
-                              ? "🩸 Period Phase"
-                              : cycleDay <= 13
-                                  ? "🌱 Follicular Phase"
-                                  : cycleDay <= 16
-                                      ? "🌟 Ovulation Phase"
-                                      : "🌙 Luteal Phase",
-                          style: TextStyle(
-                            color: Colors.grey.shade600,
-                            fontSize: 13,
-                          ),
+                          cycleDay <= 5 ? "🩸 Period Phase"
+                              : cycleDay <= 13 ? "🌱 Follicular Phase"
+                              : cycleDay <= 16 ? "🌟 Ovulation Phase"
+                              : "🌙 Luteal Phase",
+                          style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
                         ),
                       ],
                     ),
@@ -368,11 +310,8 @@ class _TrackScreenState extends State<TrackScreen>
                       ),
                       child: Slider(
                         value: cycleDay.toDouble(),
-                        min: 1,
-                        max: 30,
-                        divisions: 29,
-                        onChanged: (val) =>
-                            setState(() => cycleDay = val.toInt()),
+                        min: 1, max: 30, divisions: 29,
+                        onChanged: (val) => setState(() => cycleDay = val.toInt()),
                       ),
                     ),
                     Row(
@@ -397,38 +336,24 @@ class _TrackScreenState extends State<TrackScreen>
                       onTap: () => setState(() => selectedFlow = i),
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                         decoration: BoxDecoration(
-                          color: selected
-                              ? flowColors[i].withOpacity(0.2)
-                              : Colors.grey.shade100,
+                          color: selected ? flowColors[i].withOpacity(0.2) : Colors.grey.shade100,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: selected ? flowColors[i] : Colors.transparent,
-                            width: 2,
-                          ),
+                              color: selected ? flowColors[i] : Colors.transparent, width: 2),
                         ),
                         child: Column(
                           children: [
-                            Icon(
-                              Icons.water_drop,
-                              color: selected ? flowColors[i] : Colors.grey.shade400,
-                              size: selected ? 22 : 18,
-                            ),
+                            Icon(Icons.water_drop,
+                                color: selected ? flowColors[i] : Colors.grey.shade400,
+                                size: selected ? 22 : 18),
                             const SizedBox(height: 4),
-                            Text(
-                              flows[i],
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: selected
-                                    ? flowColors[i]
-                                    : Colors.grey,
-                                fontWeight: selected
-                                    ? FontWeight.bold
-                                    : FontWeight.normal,
-                              ),
-                            ),
+                            Text(flows[i],
+                                style: TextStyle(
+                                    fontSize: 10,
+                                    color: selected ? flowColors[i] : Colors.grey,
+                                    fontWeight: selected ? FontWeight.bold : FontWeight.normal)),
                           ],
                         ),
                       ),
@@ -448,37 +373,24 @@ class _TrackScreenState extends State<TrackScreen>
                     return GestureDetector(
                       onTap: () {
                         setState(() {
-                          if (selected) {
-                            selectedSymptoms.remove(s);
-                          } else {
-                            selectedSymptoms.add(s);
-                          }
+                          if (selected) selectedSymptoms.remove(s);
+                          else selectedSymptoms.add(s);
                         });
                       },
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 150),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         decoration: BoxDecoration(
-                          color: selected
-                              ? accent.withOpacity(0.15)
-                              : Colors.grey.shade100,
+                          color: selected ? accent.withOpacity(0.15) : Colors.grey.shade100,
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                            color: selected ? accent : Colors.grey.shade200,
-                            width: 1.5,
-                          ),
+                              color: selected ? accent : Colors.grey.shade200, width: 1.5),
                         ),
-                        child: Text(
-                          s,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: selected ? const Color(0xFF2E7D60) : Colors.grey.shade700,
-                            fontWeight: selected
-                                ? FontWeight.w600
-                                : FontWeight.normal,
-                          ),
-                        ),
+                        child: Text(s,
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: selected ? const Color(0xFF2E7D60) : Colors.grey.shade700,
+                                fontWeight: selected ? FontWeight.w600 : FontWeight.normal)),
                       ),
                     );
                   }).toList(),
@@ -493,22 +405,11 @@ class _TrackScreenState extends State<TrackScreen>
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(
-                          "$waterGlasses",
-                          style: TextStyle(
-                            fontSize: 36,
-                            fontWeight: FontWeight.bold,
-                            color: accent,
-                          ),
-                        ),
+                        Text("$waterGlasses",
+                            style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: accent)),
                         const SizedBox(width: 8),
-                        Text(
-                          "/ 8 glasses",
-                          style: TextStyle(
-                            color: Colors.grey.shade500,
-                            fontSize: 16,
-                          ),
-                        ),
+                        Text("/ 8 glasses",
+                            style: TextStyle(color: Colors.grey.shade500, fontSize: 16)),
                       ],
                     ),
                     const SizedBox(height: 12),
@@ -516,33 +417,22 @@ class _TrackScreenState extends State<TrackScreen>
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: List.generate(8, (i) {
                         return GestureDetector(
-                          onTap: () =>
-                              setState(() => waterGlasses = i + 1),
+                          onTap: () => setState(() => waterGlasses = i + 1),
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 150),
                             margin: const EdgeInsets.symmetric(horizontal: 3),
-                            child: Icon(
-                              Icons.local_drink,
-                              size: 30,
-                              color: i < waterGlasses
-                                  ? const Color(0xFF29B6F6)
-                                  : Colors.grey.shade300,
-                            ),
+                            child: Icon(Icons.local_drink, size: 30,
+                                color: i < waterGlasses ? const Color(0xFF29B6F6) : Colors.grey.shade300),
                           ),
                         );
                       }),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      waterGlasses >= 8
-                          ? "🎉 Goal reached!"
-                          : "${8 - waterGlasses} more to go",
+                      waterGlasses >= 8 ? "🎉 Goal reached!" : "${8 - waterGlasses} more to go",
                       style: TextStyle(
-                        color: waterGlasses >= 8
-                            ? const Color(0xFF2E7D60)
-                            : Colors.grey.shade500,
-                        fontSize: 13,
-                      ),
+                          color: waterGlasses >= 8 ? const Color(0xFF2E7D60) : Colors.grey.shade500,
+                          fontSize: 13),
                     ),
                   ],
                 ),
@@ -556,44 +446,27 @@ class _TrackScreenState extends State<TrackScreen>
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
+                        Text("${sleepHours.toStringAsFixed(1)} hrs",
+                            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF7B61FF))),
                         Text(
-                          "${sleepHours.toStringAsFixed(1)} hrs",
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: const Color(0xFF7B61FF),
-                          ),
-                        ),
-                        Text(
-                          sleepHours < 6
-                              ? "😴 Too little"
-                              : sleepHours <= 9
-                                  ? "✅ Well rested"
-                                  : "😪 Oversleeping",
-                          style: TextStyle(
-                            color: Colors.grey.shade600,
-                            fontSize: 13,
-                          ),
+                          sleepHours < 6 ? "😴 Too little"
+                              : sleepHours <= 9 ? "✅ Well rested"
+                              : "😪 Oversleeping",
+                          style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
                         ),
                       ],
                     ),
                     SliderTheme(
                       data: SliderTheme.of(context).copyWith(
                         activeTrackColor: const Color(0xFF7B61FF),
-                        inactiveTrackColor:
-                            const Color(0xFF7B61FF).withOpacity(0.2),
+                        inactiveTrackColor: const Color(0xFF7B61FF).withOpacity(0.2),
                         thumbColor: const Color(0xFF7B61FF),
-                        overlayColor:
-                            const Color(0xFF7B61FF).withOpacity(0.1),
+                        overlayColor: const Color(0xFF7B61FF).withOpacity(0.1),
                         trackHeight: 6,
                       ),
                       child: Slider(
-                        value: sleepHours,
-                        min: 0,
-                        max: 12,
-                        divisions: 24,
-                        onChanged: (val) =>
-                            setState(() => sleepHours = val),
+                        value: sleepHours, min: 0, max: 12, divisions: 24,
+                        onChanged: (val) => setState(() => sleepHours = val),
                       ),
                     ),
                     Row(
@@ -619,32 +492,18 @@ class _TrackScreenState extends State<TrackScreen>
                       onTap: () => setState(() => selectedExercise = e),
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 150),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 10),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                         decoration: BoxDecoration(
-                          color: selected
-                              ? const Color(0xFFFF7043).withOpacity(0.15)
-                              : Colors.grey.shade100,
+                          color: selected ? const Color(0xFFFF7043).withOpacity(0.15) : Colors.grey.shade100,
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(
-                            color: selected
-                                ? const Color(0xFFFF7043)
-                                : Colors.grey.shade200,
-                            width: 1.5,
-                          ),
+                              color: selected ? const Color(0xFFFF7043) : Colors.grey.shade200, width: 1.5),
                         ),
-                        child: Text(
-                          e,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: selected
-                                ? const Color(0xFFBF360C)
-                                : Colors.grey.shade700,
-                            fontWeight: selected
-                                ? FontWeight.bold
-                                : FontWeight.normal,
-                          ),
-                        ),
+                        child: Text(e,
+                            style: TextStyle(
+                                fontSize: 13,
+                                color: selected ? const Color(0xFFBF360C) : Colors.grey.shade700,
+                                fontWeight: selected ? FontWeight.bold : FontWeight.normal)),
                       ),
                     );
                   }).toList(),
@@ -665,28 +524,17 @@ class _TrackScreenState extends State<TrackScreen>
                           margin: const EdgeInsets.symmetric(horizontal: 4),
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           decoration: BoxDecoration(
-                            color: selected
-                                ? accent.withOpacity(0.15)
-                                : Colors.grey.shade100,
+                            color: selected ? accent.withOpacity(0.15) : Colors.grey.shade100,
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(
-                              color: selected ? accent : Colors.grey.shade200,
-                              width: 1.5,
-                            ),
+                                color: selected ? accent : Colors.grey.shade200, width: 1.5),
                           ),
-                          child: Text(
-                            d,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: selected
-                                  ? const Color(0xFF2E7D60)
-                                  : Colors.grey.shade600,
-                              fontWeight: selected
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
-                            ),
-                          ),
+                          child: Text(d,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  color: selected ? const Color(0xFF2E7D60) : Colors.grey.shade600,
+                                  fontWeight: selected ? FontWeight.bold : FontWeight.normal)),
                         ),
                       ),
                     );
@@ -702,23 +550,18 @@ class _TrackScreenState extends State<TrackScreen>
                     Expanded(
                       child: TextField(
                         controller: tempController,
-                        keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true),
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         style: const TextStyle(color: Colors.black),
                         decoration: InputDecoration(
                           hintText: "e.g. 36.6",
-                          hintStyle:
-                              TextStyle(color: Colors.grey.shade400),
+                          hintStyle: TextStyle(color: Colors.grey.shade400),
                           filled: true,
                           fillColor: Colors.grey.shade100,
                           suffixText: "°C",
-                          suffixStyle: TextStyle(color: accent),
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 14),
+                          suffixStyle: const TextStyle(color: accent),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(14),
-                            borderSide: BorderSide.none,
-                          ),
+                              borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
                         ),
                       ),
                     ),
@@ -726,9 +569,7 @@ class _TrackScreenState extends State<TrackScreen>
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFFECB3),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
+                          color: const Color(0xFFFFECB3), borderRadius: BorderRadius.circular(14)),
                       child: const Text("🌡️", style: TextStyle(fontSize: 24)),
                     ),
                   ],
@@ -739,57 +580,37 @@ class _TrackScreenState extends State<TrackScreen>
               _sectionCard(
                 title: "Medication / Supplement 💊",
                 child: GestureDetector(
-                  onTap: () =>
-                      setState(() => tookMedication = !tookMedication),
+                  onTap: () => setState(() => tookMedication = !tookMedication),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: tookMedication
-                          ? accent.withOpacity(0.12)
-                          : Colors.grey.shade100,
+                      color: tookMedication ? accent.withOpacity(0.12) : Colors.grey.shade100,
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(
-                        color:
-                            tookMedication ? accent : Colors.grey.shade200,
-                        width: 1.5,
-                      ),
+                          color: tookMedication ? accent : Colors.grey.shade200, width: 1.5),
                     ),
                     child: Row(
                       children: [
                         AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
-                          width: 28,
-                          height: 28,
+                          width: 28, height: 28,
                           decoration: BoxDecoration(
-                            color:
-                                tookMedication ? accent : Colors.transparent,
+                            color: tookMedication ? accent : Colors.transparent,
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                              color: tookMedication
-                                  ? accent
-                                  : Colors.grey.shade400,
-                              width: 2,
-                            ),
+                                color: tookMedication ? accent : Colors.grey.shade400, width: 2),
                           ),
                           child: tookMedication
-                              ? const Icon(Icons.check,
-                                  color: Colors.white, size: 18)
+                              ? const Icon(Icons.check, color: Colors.white, size: 18)
                               : null,
                         ),
                         const SizedBox(width: 12),
                         Text(
-                          tookMedication
-                              ? "✅ Taken today!"
-                              : "Did you take your medication?",
+                          tookMedication ? "✅ Taken today!" : "Did you take your medication?",
                           style: TextStyle(
-                            color: tookMedication
-                                ? const Color(0xFF2E7D60)
-                                : Colors.grey.shade600,
-                            fontWeight: tookMedication
-                                ? FontWeight.bold
-                                : FontWeight.normal,
-                          ),
+                              color: tookMedication ? const Color(0xFF2E7D60) : Colors.grey.shade600,
+                              fontWeight: tookMedication ? FontWeight.bold : FontWeight.normal),
                         ),
                       ],
                     ),
@@ -805,25 +626,20 @@ class _TrackScreenState extends State<TrackScreen>
                   maxLines: 4,
                   style: const TextStyle(color: Colors.black),
                   decoration: InputDecoration(
-                    hintText:
-                        "How was your day? Any other symptoms or thoughts...",
-                    hintStyle:
-                        TextStyle(color: Colors.grey.shade400, fontSize: 13),
+                    hintText: "How was your day? Any other symptoms or thoughts...",
+                    hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
                     filled: true,
                     fillColor: Colors.grey.shade50,
                     contentPadding: const EdgeInsets.all(14),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide(color: Colors.grey.shade200),
-                    ),
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide(color: Colors.grey.shade200)),
                     enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide(color: Colors.grey.shade200),
-                    ),
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide(color: Colors.grey.shade200)),
                     focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide(color: accent),
-                    ),
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: const BorderSide(color: accent)),
                   ),
                 ),
               ),
@@ -836,9 +652,7 @@ class _TrackScreenState extends State<TrackScreen>
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: accent,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     elevation: 0,
                   ),
                   onPressed: saveEntry,
@@ -847,14 +661,8 @@ class _TrackScreenState extends State<TrackScreen>
                     children: [
                       Icon(Icons.save_alt, color: Colors.white),
                       SizedBox(width: 8),
-                      Text(
-                        "Save Today's Entry",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                      Text("Save Today's Entry",
+                          style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
                     ],
                   ),
                 ),
@@ -869,14 +677,8 @@ class _TrackScreenState extends State<TrackScreen>
   }
 
   String _formatDate(DateTime date) {
-    const months = [
-      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
-    ];
-    const days = [
-      "Monday", "Tuesday", "Wednesday",
-      "Thursday", "Friday", "Saturday", "Sunday"
-    ];
+    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const days = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
     return "${days[date.weekday - 1]}, ${date.day} ${months[date.month - 1]} ${date.year}";
   }
 }

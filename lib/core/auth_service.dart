@@ -16,7 +16,7 @@ class AuthService {
   // emulator instead, switch this to "http://10.0.2.2:8000". For a
   // physical phone on the same WiFi, use your PC's LAN IP and run
   // `python manage.py runserver 0.0.0.0:8000`.
-  static const String baseUrl = "http://127.0.0.1:8000";
+  static const String baseUrl = "http://192.168.1.144:8000" ;
 
   static const String _accessKey = "access_token";
   static const String _refreshKey = "refresh_token";
